@@ -778,10 +778,15 @@ class Query:
         """
         if self.service == 'MPC': raise ValueError("'service' must be 'Lowell'.")
         # Getting all necessary parameters
-        if 'observer' in kwargs: observer = kwargs['observer']
-        else: observer = EarthLocation.from_geocentric(0,0,0, unit='m')
         if 'epoch' in kwargs: epoch = kwargs['epoch']
         else: epoch = Time.now()
+        if 'obscoords' in kwargs:
+            obscoords = kwargs['obscoords']
+        else:
+            if 'observer' in kwargs: observer = kwargs['observer']
+            else: observer = EarthLocation.from_geocentric(0, 0, 0, unit='m')
+            [geopos, geovel] = observer.get_gcrs_posvel(epoch)
+            obscoords = SkyCoord(geopos, frame='gcrs', obstime=epoch)
         if 'njobs' in kwargs: njobs = kwargs['njobs']
         else: njobs = 1
         if 'confidence_radius' in kwargs: confidence_radius = kwargs['confidence_radius'].to('deg').value
@@ -794,8 +799,6 @@ class Query:
             allasts = False
         else: allasts = True
         c = self.cursor; conn = self.connection
-        [geopos,geovel] = observer.get_gcrs_posvel(epoch)
-        obscoords = SkyCoord(geopos, frame='gcrs', obstime=epoch)
         obsx = obscoords.hcrs.cartesian.x.to('au').value
         obsy = obscoords.hcrs.cartesian.y.to('au').value
         obsz = obscoords.hcrs.cartesian.z.to('au').value
@@ -925,10 +928,7 @@ class Query:
         # Getting all necessary parameters
         if isinstance(ast, (int,np.int64)): ast_name = self.asts_db.iloc[ast].name
         if isinstance(ast, str): ast_name = ast
-        
-        if 'observer' in kwargs: observer = kwargs['observer']
-        else: observer = EarthLocation.from_geocentric(0,0,0, unit='m')
-        
+
         if 'epochs' in kwargs:
             if not isinstance(kwargs['epochs'], Time):
                 print('ERROR'); return
@@ -953,8 +953,14 @@ class Query:
             t0 = t0_max; table = table_max; dir_integ = -1; tqs = tqs[::-1]; epochs = epochs[::-1]; iepochs = iepochs[::-1]
         
         # Observatory coordinates
-        [geopos,geovel] = observer.get_gcrs_posvel(epochs)
-        obscoords = SkyCoord(geopos, frame='gcrs', obstime=epochs)
+        if 'obscoords' in kwargs:
+            obscoords = kwargs['obscoords']
+        else:
+            if 'observer' in kwargs: observer = kwargs['observer']
+            else: observer = EarthLocation.from_geocentric(0,0,0, unit='m')
+            [geopos,geovel] = observer.get_gcrs_posvel(epochs)
+            obscoords = SkyCoord(geopos, frame='gcrs', obstime=epochs)
+
         obsx = obscoords.hcrs.cartesian.x.to('au').value
         obsy = obscoords.hcrs.cartesian.y.to('au').value
         obsz = obscoords.hcrs.cartesian.z.to('au').value
@@ -1015,7 +1021,7 @@ class Query:
         ast_geo = [-xe, -ye, -ze]  # Obs vector from ast
         ast_sun = [-x, -y, -z]     # Sun vector from ast
         alpha = angle_between_vectors(ast_geo, ast_sun)  # Phase angle (in rads)
-        phase_func1 = np.exp(-3.33*np.tan(alpha/2)**0.36)
+        phase_func1 = np.exp(-3.33*np.tan(alpha/2)**0.63)
         phase_func2 = np.exp(-1.87*np.tan(alpha/2)**1.22)
         phase_func = (1-g)*phase_func1 + g*phase_func2
         Vs = h + 5*np.log10(geodist*np.sqrt(x*x+y*y+z*z)) - 2.5*np.log10(phase_func)
